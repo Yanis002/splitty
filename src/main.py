@@ -47,6 +47,8 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(850, 750)
         self.setCentralWidget(self.webview)
 
+        self.video_player = None
+
         if self.args.player:
             self.video_player = VideoPlayer()
             self.video_player.show()
@@ -58,8 +60,16 @@ class MainWindow(QMainWindow):
     def keyPressEvent(self, event: QKeyEvent):
         super().keyPressEvent(event)
 
-        if event.modifiers() == Qt.KeyboardModifier.ControlModifier and event.key() == Qt.Key.Key_F5:
-            self.webview.reload()
+        if event.modifiers() == Qt.KeyboardModifier.ControlModifier:
+            match event.key():
+                case Qt.Key.Key_F5:
+                    self.webview.reload()
+                case Qt.Key.Key_P:
+                    if self.video_player is None:
+                        self.video_player = VideoPlayer()
+
+                    self.video_player.show()
+                    self.video_player.widget.show()
 
     def closeEvent(self, a0):
         self.webview.close()

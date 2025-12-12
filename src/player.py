@@ -125,6 +125,10 @@ class VideoPlayer(QMainWindow):
         self.media_player.pause() # trick to show the first frame
         self.media_player.setPosition(self.video_offset.value())
 
+    def closeEvent(self, e):
+        super(QMainWindow, self).closeEvent(e)
+        self.widget.close()
+
     def get_time(self, start_ms: int):
         assert start_ms >= 0
         temp_sec, ms = divmod(start_ms, 1000)
