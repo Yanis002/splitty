@@ -16,41 +16,23 @@ class KeyThread(QThread):
 
     def __init__(self):
         super().__init__()
-        self.split_sequence = [keyboard.Key.ctrl.value, keyboard.Key.alt.value, keyboard.Key.shift.value, keyboard.Key.f1.value]
-        self.reset_sequence = [keyboard.Key.ctrl.value, keyboard.Key.shift.value, keyboard.KeyCode(65511), keyboard.Key.f2.value]
-        self.pause_sequence = [keyboard.Key.pause.value]
-        self.split_index = 0
-        self.reset_index = 0
-        self.pause_index = 0
-
-    def validate_sequence(self, index_attr: str, key: keyboard.KeyCode, sequence: list[keyboard.Key], signal_attr: pyqtSignal):
-        if key in sequence and getattr(self, index_attr) == sequence.index(key):
-            setattr(self, index_attr, getattr(self, index_attr) + 1)
-        else:
-            setattr(self, index_attr, 0)
-
-        if getattr(self, index_attr) == len(sequence):
-            getattr(self, signal_attr).emit()
-
-    def on_press(self, key: keyboard.Key | keyboard.KeyCode):
-        if isinstance(key, keyboard.Key):
-            val = key.value
-        else:
-            val = key
-
-        self.validate_sequence("split_index", val, self.split_sequence, "split_pressed")
-        self.validate_sequence("reset_index", val, self.reset_sequence, "reset_pressed")
-        self.validate_sequence("pause_index", val, self.pause_sequence, "pause_pressed")
-
-    def on_release(self, key):
-        if key == keyboard.Key.esc:
-            # Stop listener
-            return False
-
+        self.split_sequence = "<ctrl>+<alt>+<shift>+<f1>"
+        self.reset_sequence = "<ctrl>+<alt>+<shift>+<f2>"
+        self.pause_sequence = "<pause>"
+        self.listener: keyboard.GlobalHotKeys | None = None
+        self.gh_map = {
+            self.split_sequence: self.split_pressed.emit,
+            self.reset_sequence: self.reset_pressed.emit,
+            self.pause_sequence: self.pause_pressed.emit,
+        }
+    
     def run(self):
         # Collect events until released
-        with keyboard.Listener(on_press=self.on_press, on_release=self.on_release) as listener:
-            listener.join()
+        while True:
+            if self.listener is None:
+                with keyboard.GlobalHotKeys(self.gh_map) as listener:
+                    self.listener = listener
+                    listener.join()
 
 
 class VideoPlayer(QMainWindow):
@@ -114,6 +96,7 @@ class VideoPlayer(QMainWindow):
         self.widget = QWidget()
         self.widget.setWindowTitle("Video Player Controls")
         self.widget.setLayout(layout)
+        self.widget.setFixedSize(self.width(), layout.geometry().height())
         self.widget.show()
 
         self.key_thread = KeyThread()
@@ -126,8 +109,14 @@ class VideoPlayer(QMainWindow):
         self.media_player.setPosition(self.video_offset.value())
 
     def closeEvent(self, e):
+        self.key_thread.quit()
+        self.key_thread.deleteLater()
         super(QMainWindow, self).closeEvent(e)
         self.widget.close()
+
+    def moveEvent(self, a0):
+        super().moveEvent(a0)
+        self.widget.move(self.pos().x(), self.pos().y() + self.height() + 30)
 
     def get_time(self, start_ms: int):
         assert start_ms >= 0
