@@ -2,6 +2,7 @@
 
 import json
 import sys
+import ffmpeg
 
 from pathlib import Path
 from pynput import keyboard
@@ -140,10 +141,11 @@ class KeyThread(QThread):
 
 
 class VideoPlayerControls(QWidget):
-    def __init__(self, player: QMediaPlayer):
+    def __init__(self, parent: "VideoPlayer"):
         super().__init__()
 
-        self.media_player = player
+        self.player = parent
+        self.media_player = parent.media_player
         self.is_started = False
         self.is_paused = False
 
@@ -243,6 +245,7 @@ class VideoPlayerControls(QWidget):
         self.media_player.setSource(QUrl.fromLocalFile(self.video_path.text()))
         self.is_paused = False
         self.media_player.pause() # trick to show the first frame
+        self.player.update_window()
 
     def start_video(self):
         if not self.is_started:
@@ -286,24 +289,47 @@ class VideoPlayer(QMainWindow):
         self.media_player.positionChanged.connect(self.position_changed)
         self.media_player.durationChanged.connect(self.duration_changed)
 
-        self.controls = VideoPlayerControls(self.media_player)
+        self.controls = VideoPlayerControls(self)
 
         layout = QVBoxLayout()
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self.video_widget, stretch=1)
         layout.addLayout(self.controls.layout_player)
 
-        wid = QWidget(self)
-        self.setCentralWidget(wid)
-        wid.setLayout(layout)
-
+        self.central_widget = QWidget(self)
+        self.central_widget.setLayout(layout)
+        self.setCentralWidget(self.central_widget)
         self.setWindowTitle("Video Player")
-        self.setFixedSize(640, 480 + self.controls.layout_player.sizeHint().height() + 6)
 
         self.media_player.setSource(QUrl.fromLocalFile(str(g_settings.video_path)))
         self.media_player.setVideoOutput(self.video_widget)
         self.media_player.pause() # trick to show the first frame
         self.media_player.setPosition(self.controls.video_offset.value())
+        self.update_window()
+
+    def update_window(self):
+        # TODO: find something that works without ffmpeg to limit dependencies
+        probe = ffmpeg.probe(str(g_settings.video_path))
+        video_stream = next((stream for stream in probe["streams"] if stream["codec_type"] == "video"), None)
+        assert video_stream is not None, "video stream not found"
+        video_width = int(video_stream["width"])
+        offset = 6
+
+        if video_width % 640:
+            # 4:3 video
+            width = 640
+            height = 480
+        elif video_width % 854:
+            # 16:9 video
+            width = 854 - 1
+            height = 480
+        else:
+            print("warning: video isn't 4:3 or 16:9, using video's width and height")
+            width = round(video_width / 2)
+            height = round(int(video_stream["height"]) / 2)
+            offset = 0
+
+        self.setFixedSize(width, height + self.controls.layout_player.sizeHint().height() + offset)
 
     def closeEvent(self, e):
         self.controls.close()
