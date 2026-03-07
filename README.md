@@ -16,6 +16,12 @@ Very simple video player with multiple features
 
 It can be accessed either from the browser (by pressing Ctrl+P) or as a standalone program by launching `src/player.py` directly.
 
+## Installation
+
+Install the requirements with `pip install -r requirements.txt` then run `python src/main.py` (or `python src/player.py` if you only want the video player).
+
+Autobuilds for both will come in the future.
+
 ## License
 
 Licensed under GPL3.
