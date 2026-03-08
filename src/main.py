@@ -69,7 +69,6 @@ class MainWindow(QMainWindow):
                         self.video_player = VideoPlayer()
 
                     self.video_player.show()
-                    self.video_player.controls.show()
 
     def closeEvent(self, a0):
         self.webview.close()

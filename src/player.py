@@ -440,11 +440,11 @@ class VideoPlayer(QMainWindow):
         video_width = int(video_stream["width"])
         offset = 6
 
-        if video_width % 640:
+        if video_width == 640 or video_width % 640:
             # 4:3 video
             width = 640
             height = 480
-        elif video_width % 854:
+        elif video_width == 854 or video_width % 854:
             # 16:9 video
             width = 854 - 1
             height = 480
