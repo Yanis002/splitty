@@ -6,10 +6,11 @@ import ffmpeg
 
 from pathlib import Path
 from pynput import keyboard
-from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton, QSlider, QHBoxLayout, QLabel, QLineEdit, QSpinBox, QFileDialog
+from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton, QSlider, QHBoxLayout, QLabel, QLineEdit, QSpinBox, QFileDialog, QKeySequenceEdit, QMenu, QMenuBar
 from PyQt6.QtMultimedia import QMediaPlayer
 from PyQt6.QtMultimediaWidgets import QVideoWidget
 from PyQt6.QtCore import QUrl, Qt, QThread, pyqtSignal
+from PyQt6.QtGui import QAction
 
 
 class VideoPlayerSettings:
@@ -140,7 +141,7 @@ class KeyThread(QThread):
         self.quit()
 
 
-class VideoPlayerControls(QWidget):
+class VideoPlayerControls(QMainWindow):
     def __init__(self, parent: "VideoPlayer"):
         super().__init__()
 
@@ -148,41 +149,44 @@ class VideoPlayerControls(QWidget):
         self.media_player = parent.media_player
         self.is_started = False
         self.is_paused = False
+        self.is_separated = False
 
         self.video_path = QLineEdit(str(g_settings.video_path))
         self.video_offset = QSpinBox()
         self.open_button = QPushButton("Open Video")
-        self.open_settings_button = QPushButton("Open Settings")
-        self.save_settings_button = QPushButton("Save Settings")
         self.start_button = QPushButton("Play")
         self.pause_button = QPushButton("Pause")
         self.stop_button = QPushButton("Stop")
+        self.split_button = QPushButton("Separate Controls")
         self.slider = QSlider(Qt.Orientation.Horizontal)
         self.lbl_time = QLabel(f"{g_settings.get_time(0)} / {g_settings.get_time(self.media_player.duration())}")
+
         self.key_thread = KeyThread()
 
         # setup the ui
-        layout_player_row1 = QHBoxLayout()
-        layout_player_row1.addWidget(self.start_button)
-        layout_player_row1.addWidget(self.pause_button)
-        layout_player_row1.addWidget(self.stop_button)
-        layout_player_row1.addWidget(self.open_settings_button)
-        layout_player_row1.addWidget(self.save_settings_button)
+        self.menu = QMenuBar()
+        self.menu.setObjectName("menu")
+        self.menu.setVisible(False)
+        self.setMenuBar(self.menu)
 
-        layout_player_row2 = QHBoxLayout()
-        layout_player_row2.addWidget(self.open_button)
-        layout_player_row2.addWidget(self.video_path)
-        layout_player_row2.addWidget(self.video_offset)
+        self.menu_file = QMenu()
+        self.menu_file.setObjectName("menu_file")
+        self.menu_file.setTitle("File")
 
-        layout_player_row3 = QHBoxLayout()
-        layout_player_row3.addWidget(self.slider)
-        layout_player_row3.addWidget(self.lbl_time)
+        self.action_open_settings = QAction()
+        self.action_open_settings.setObjectName("action_open_settings")
+        self.action_open_settings.setText("Open Settings")
+        self.action_open_settings.triggered.connect(self.open_settings)
 
-        self.layout_player = QVBoxLayout()
-        self.layout_player.setContentsMargins(10, 0, 10, 5)
-        self.layout_player.addLayout(layout_player_row1)
-        self.layout_player.addLayout(layout_player_row2)
-        self.layout_player.addLayout(layout_player_row3)
+        self.action_save_settings = QAction()
+        self.action_save_settings.setObjectName("action_save_settings")
+        self.action_save_settings.setText("Save Settings")
+        self.action_save_settings.triggered.connect(self.save_settings)
+
+        self.menu_file.addAction(self.action_open_settings)
+        self.menu_file.addAction(self.action_save_settings)
+
+        self.menu.addMenu(self.menu_file)
 
         self.setWindowTitle("Video Player Controls")
         self.video_offset.setMaximum(9999999)
@@ -194,16 +198,15 @@ class VideoPlayerControls(QWidget):
         # connections
         self.video_path.textChanged.connect(self.update_video)
         self.video_offset.valueChanged.connect(self.set_video_offset)
-        self.open_button.clicked.connect(self.open_video)
-        self.open_settings_button.clicked.connect(self.open_settings)
-        self.save_settings_button.clicked.connect(self.save_settings)
-        self.start_button.clicked.connect(self.start_video)
+        self.open_button.pressed.connect(self.open_video)
+        self.start_button.pressed.connect(self.start_video)
         self.key_thread.split_pressed.connect(self.start_video)
-        self.pause_button.clicked.connect(self.pause_video)
+        self.pause_button.pressed.connect(self.pause_video)
         self.key_thread.pause_pressed.connect(self.pause_video)
-        self.stop_button.clicked.connect(self.stop_video)
+        self.stop_button.pressed.connect(self.stop_video)
         self.key_thread.reset_pressed.connect(self.stop_video)
         self.slider.sliderMoved.connect(self.set_position)
+        self.split_button.pressed.connect(self.separate_windows)
 
     def closeEvent(self, e):
         self.key_thread.stop()
@@ -213,6 +216,30 @@ class VideoPlayerControls(QWidget):
         self.video_offset.setValue(g_settings.video_offset)
         self.video_path.setText(str(g_settings.video_path))
         self.key_thread.restart_listener()
+
+    def get_layout(self):
+        layour_row_buttons = QHBoxLayout()
+        layour_row_buttons.addWidget(self.start_button)
+        layour_row_buttons.addWidget(self.pause_button)
+        layour_row_buttons.addWidget(self.stop_button)
+        layour_row_buttons.addWidget(self.split_button)
+
+        layout_video = QHBoxLayout()
+        layout_video.addWidget(self.open_button)
+        layout_video.addWidget(self.video_path)
+        layout_video.addWidget(self.video_offset)
+
+        layout_progression = QHBoxLayout()
+        layout_progression.addWidget(self.slider)
+        layout_progression.addWidget(self.lbl_time)
+
+        layout_player = QVBoxLayout()
+        layout_player.addLayout(layout_video)
+        layout_player.addLayout(layout_progression)
+        layout_player.addLayout(layour_row_buttons)
+        layout_player.setContentsMargins(10, 5 if self.is_separated else 0, 10, 5)
+
+        return layout_player
 
     def open_video(self):
         file_path, _ = QFileDialog.getOpenFileName(None, "Open PB Video", str(Path.home()), "Videos (*.mp4 *.mkv);;All Files (*)")
@@ -275,6 +302,30 @@ class VideoPlayerControls(QWidget):
     def set_video_offset(self):
         g_settings.video_offset = self.video_offset.value()
 
+    def set_window_layout(self):
+        if self.is_separated:
+            self.menu.setVisible(True)
+
+            central_widget = QWidget(self)
+            central_widget.setLayout(self.get_layout())
+            self.setCentralWidget(central_widget)
+        else:
+            self.menu.setVisible(False)
+            self.setCentralWidget(None)
+
+    def separate_windows(self):
+        if not self.is_separated:
+            self.is_separated = True
+            self.show()
+            self.move(self.player.pos().x(), self.player.pos().y() + self.player.height() + 30)
+        else:
+            self.is_separated = False
+            self.close()
+
+        self.split_button.setText(f"{'Merge' if self.is_separated else 'Separate'} Controls")
+        self.player.set_window_layout()
+        self.set_window_layout()
+
 
 class VideoPlayer(QMainWindow):
     def __init__(self):
@@ -282,29 +333,55 @@ class VideoPlayer(QMainWindow):
 
         self.duration = None
 
-        # player
         self.media_player = QMediaPlayer()
         self.video_widget = QVideoWidget()
+        self.controls = VideoPlayerControls(self)
 
         self.media_player.positionChanged.connect(self.position_changed)
         self.media_player.durationChanged.connect(self.duration_changed)
-
-        self.controls = VideoPlayerControls(self)
-
-        layout = QVBoxLayout()
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(self.video_widget, stretch=1)
-        layout.addLayout(self.controls.layout_player)
-
-        self.central_widget = QWidget(self)
-        self.central_widget.setLayout(layout)
-        self.setCentralWidget(self.central_widget)
-        self.setWindowTitle("Video Player")
-
         self.media_player.setSource(QUrl.fromLocalFile(str(g_settings.video_path)))
         self.media_player.setVideoOutput(self.video_widget)
         self.media_player.pause() # trick to show the first frame
         self.media_player.setPosition(self.controls.video_offset.value())
+
+        self.control_layout = self.controls.get_layout()
+
+        self.menu = QMenuBar()
+        self.menu.addMenu(self.controls.menu_file)
+        self.setMenuBar(self.menu)
+
+        self.setWindowTitle("Video Player")
+        self.set_window_layout()
+
+    def closeEvent(self, e):
+        self.controls.close()
+        super(QMainWindow, self).closeEvent(e)
+
+    def moveEvent(self, a0):
+        super().moveEvent(a0)
+
+        if self.controls.is_separated:
+            self.controls.move(self.pos().x(), self.pos().y() + self.height() + 30)
+
+    def get_layout(self):
+        self.control_layout = self.controls.get_layout()
+        layout = QVBoxLayout()
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self.video_widget, stretch=1)
+        layout.addLayout(self.control_layout)
+        return layout
+
+    def set_window_layout(self):
+        if self.controls.is_separated:
+            self.menu.setVisible(False)
+            self.centralWidget().deleteLater()
+            self.setCentralWidget(self.video_widget)
+        else:
+            self.menu.setVisible(True)
+            central_widget = QWidget(self)
+            central_widget.setLayout(self.get_layout())
+            self.setCentralWidget(central_widget)
+
         self.update_window()
 
     def update_window(self):
@@ -329,11 +406,13 @@ class VideoPlayer(QMainWindow):
             height = round(int(video_stream["height"]) / 2)
             offset = 0
 
-        self.setFixedSize(width, height + self.controls.layout_player.sizeHint().height() + offset)
+        if self.controls.is_separated:
+            final_height = height
+            self.controls.setFixedSize(width, 110)
+        else:
+            final_height = self.menu.sizeHint().height() + height + self.control_layout.sizeHint().height() + offset
 
-    def closeEvent(self, e):
-        self.controls.close()
-        super(QMainWindow, self).closeEvent(e)
+        self.setFixedSize(width, final_height)
 
     def position_changed(self, position):
         if self.duration is None:
