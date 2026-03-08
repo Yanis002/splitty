@@ -133,12 +133,12 @@ class KeyThread(QThread):
         return gh_map
 
     def create_listener(self):
-        if self.listener is None:
+        if self.listener is None or not self.listener.is_alive():
             self.listener = keyboard.GlobalHotKeys(self.get_gh_map())
             self.listener.start()
 
     def destroy_listener(self):
-        if self.listener is not None:
+        if self.listener is not None and self.listener.is_alive():
             self.listener.stop()
             self.listener = None
 
