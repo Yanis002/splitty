@@ -13,6 +13,9 @@ from PyQt6.QtCore import QUrl, Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QAction
 
 
+SPECIAL_KEYS = ["ctrl", "alt", "shift", "cmd", "stealth", "pause"] + [f"f{i}" for i in range(1, 21)]
+
+
 class VideoPlayerSettings:
     default_path = Path.cwd() / "settings.json"
 
@@ -160,14 +163,32 @@ class VideoPlayerControls(QMainWindow):
         self.split_button = QPushButton("Separate Controls")
         self.slider = QSlider(Qt.Orientation.Horizontal)
         self.lbl_time = QLabel(f"{g_settings.get_time(0)} / {g_settings.get_time(self.media_player.duration())}")
+        self.action_hotkeys = QPushButton("Set Hotkeys")
 
         self.key_thread = KeyThread()
+
+        self.hotkey_mgr = QWidget()
+        self.hotkey_split = QKeySequenceEdit()
+        self.hotkey_reset = QKeySequenceEdit()
+        self.hotkey_pause = QKeySequenceEdit()
+        self.hotkey_split.setClearButtonEnabled(True)
+        self.hotkey_reset.setClearButtonEnabled(True)
+        self.hotkey_pause.setClearButtonEnabled(True)
+        self.hotkey_ok = QPushButton("Ok")
+        self.hotkey_ok.pressed.connect(self.set_hotkeys)
+        layout = QVBoxLayout()
+        layout.addWidget(self.hotkey_split)
+        layout.addWidget(self.hotkey_reset)
+        layout.addWidget(self.hotkey_pause)
+        layout.addWidget(self.hotkey_ok)
+        self.hotkey_mgr.setLayout(layout)
+        self.hotkey_mgr.setWindowTitle("Hotkeys")
+        self.hotkey_mgr.setFixedSize(200, 150)
 
         # setup the ui
         self.menu = QMenuBar()
         self.menu.setObjectName("menu")
         self.menu.setVisible(False)
-        self.setMenuBar(self.menu)
 
         self.menu_file = QMenu()
         self.menu_file.setObjectName("menu_file")
@@ -186,7 +207,8 @@ class VideoPlayerControls(QMainWindow):
         self.menu_file.addAction(self.action_open_settings)
         self.menu_file.addAction(self.action_save_settings)
 
-        self.menu.addMenu(self.menu_file)
+        self.menu.addAction(self.menu_file.menuAction())
+        self.setMenuBar(self.menu)
 
         self.setWindowTitle("Video Player Controls")
         self.video_offset.setMaximum(9999999)
@@ -207,6 +229,7 @@ class VideoPlayerControls(QMainWindow):
         self.key_thread.reset_pressed.connect(self.stop_video)
         self.slider.sliderMoved.connect(self.set_position)
         self.split_button.pressed.connect(self.separate_windows)
+        self.action_hotkeys.pressed.connect(self.get_hotkeys)
 
     def closeEvent(self, e):
         self.key_thread.stop()
@@ -223,6 +246,7 @@ class VideoPlayerControls(QMainWindow):
         layour_row_buttons.addWidget(self.pause_button)
         layour_row_buttons.addWidget(self.stop_button)
         layour_row_buttons.addWidget(self.split_button)
+        layour_row_buttons.addWidget(self.action_hotkeys)
 
         layout_video = QHBoxLayout()
         layout_video.addWidget(self.open_button)
@@ -325,6 +349,30 @@ class VideoPlayerControls(QMainWindow):
         self.split_button.setText(f"{'Merge' if self.is_separated else 'Separate'} Controls")
         self.player.set_window_layout()
         self.set_window_layout()
+
+    def get_hotkeys(self):
+        self.hotkey_split.setKeySequence(g_settings.split_sequence.replace("<", "").replace(">", ""))
+        self.hotkey_reset.setKeySequence(g_settings.reset_sequence.replace("<", "").replace(">", ""))
+        self.hotkey_pause.setKeySequence(g_settings.pause_sequence.replace("<", "").replace(">", ""))
+        self.hotkey_mgr.show()
+
+    def set_hotkeys(self):
+        def get_sequence(sequence: str):
+            split = sequence.split("+")
+            out_seq = []
+
+            for elem in split:
+                if elem in SPECIAL_KEYS:
+                    out_seq.append(f"<{elem}>")
+                else:
+                    out_seq.append(elem)
+            
+            return "+".join(out_seq)
+
+        g_settings.split_sequence = get_sequence(self.hotkey_split.keySequence().toString().lower())
+        g_settings.reset_sequence = get_sequence(self.hotkey_reset.keySequence().toString().lower())
+        g_settings.pause_sequence = get_sequence(self.hotkey_pause.keySequence().toString().lower())
+        self.hotkey_mgr.close()
 
 
 class VideoPlayer(QMainWindow):
