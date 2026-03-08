@@ -51,6 +51,7 @@ class MainWindow(QMainWindow):
 
         if self.args.player:
             self.video_player = VideoPlayer()
+            self.video_player.controls.key_thread.restart_listener()
             self.video_player.show()
 
     def download(self, download: QWebEngineDownloadRequest):
@@ -67,6 +68,7 @@ class MainWindow(QMainWindow):
                 case Qt.Key.Key_P:
                     if self.video_player is None:
                         self.video_player = VideoPlayer()
+                        self.video_player.controls.key_thread.restart_listener()
 
                     self.video_player.show()
 
