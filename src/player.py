@@ -6,7 +6,24 @@ import ffmpeg
 
 from pathlib import Path
 from pynput import keyboard
-from PyQt6.QtWidgets import QApplication, QMainWindow, QVBoxLayout, QWidget, QPushButton, QSlider, QHBoxLayout, QLabel, QLineEdit, QSpinBox, QFileDialog, QKeySequenceEdit, QMenu, QMenuBar
+
+from PyQt6.QtWidgets import (
+    QApplication,
+    QMainWindow,
+    QVBoxLayout,
+    QWidget,
+    QPushButton,
+    QSlider,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QSpinBox,
+    QFileDialog,
+    QKeySequenceEdit,
+    QMenu,
+    QMenuBar,
+)
+
 from PyQt6.QtMultimedia import QMediaPlayer
 from PyQt6.QtMultimediaWidgets import QVideoWidget
 from PyQt6.QtCore import QUrl, Qt, QThread, pyqtSignal
@@ -69,7 +86,7 @@ class VideoPlayerSettings:
 
     def save(self, path: Path):
         self.to_json(path)
-    
+
     def get_time(self, start_ms: int):
         assert start_ms >= 0
         temp_sec, ms = divmod(start_ms, 1000)
@@ -114,7 +131,7 @@ class KeyThread(QThread):
         }
 
         return gh_map
-    
+
     def create_listener(self):
         if self.listener is None:
             self.listener = keyboard.GlobalHotKeys(self.get_gh_map())
@@ -266,7 +283,9 @@ class VideoPlayerControls(QMainWindow):
         return layout_player
 
     def open_video(self):
-        file_path, _ = QFileDialog.getOpenFileName(None, "Open PB Video", str(Path.home()), "Videos (*.mp4 *.mkv);;All Files (*)")
+        file_path, _ = QFileDialog.getOpenFileName(
+            None, "Open PB Video", str(Path.home()), "Videos (*.mp4 *.mkv);;All Files (*)"
+        )
 
         if len(file_path) > 0:
             g_settings.video_path = Path(file_path).resolve()
@@ -284,7 +303,9 @@ class VideoPlayerControls(QMainWindow):
             self.apply_settings()
 
     def save_settings(self):
-        file_path, _ = QFileDialog.getSaveFileName(None, "Save Settings", str(g_settings.default_path), "JSON files (*.json)")
+        file_path, _ = QFileDialog.getSaveFileName(
+            None, "Save Settings", str(g_settings.default_path), "JSON files (*.json)"
+        )
 
         if len(file_path) > 0:
             if not file_path.lower().endswith(".json"):
@@ -295,7 +316,7 @@ class VideoPlayerControls(QMainWindow):
     def update_video(self):
         self.media_player.setSource(QUrl.fromLocalFile(self.video_path.text()))
         self.is_paused = False
-        self.media_player.pause() # trick to show the first frame
+        self.media_player.pause()  # trick to show the first frame
         self.player.update_window()
 
     def start_video(self):
@@ -317,7 +338,7 @@ class VideoPlayerControls(QMainWindow):
         self.media_player.stop()
         self.is_paused = False
         self.is_started = False
-        self.media_player.pause() # trick to show the first frame
+        self.media_player.pause()  # trick to show the first frame
         self.media_player.setPosition(self.video_offset.value())
 
     def set_position(self, position):
@@ -366,7 +387,7 @@ class VideoPlayerControls(QMainWindow):
                     out_seq.append(f"<{elem}>")
                 else:
                     out_seq.append(elem)
-            
+
             return "+".join(out_seq)
 
         g_settings.split_sequence = get_sequence(self.hotkey_split.keySequence().toString().lower())
@@ -389,7 +410,7 @@ class VideoPlayer(QMainWindow):
         self.media_player.durationChanged.connect(self.duration_changed)
         self.media_player.setSource(QUrl.fromLocalFile(str(g_settings.video_path)))
         self.media_player.setVideoOutput(self.video_widget)
-        self.media_player.pause() # trick to show the first frame
+        self.media_player.pause()  # trick to show the first frame
         self.media_player.setPosition(self.controls.video_offset.value())
 
         self.control_layout = self.controls.get_layout()

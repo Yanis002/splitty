@@ -41,7 +41,11 @@ class MainWindow(QMainWindow):
 
         self.nam = QNetworkAccessManager()
         self.nam.finished.connect(self.set_window_icon_from_response)
-        self.nam.get(QNetworkRequest(QUrl("https://raw.githubusercontent.com/LiveSplit/LiveSplitOne/refs/heads/master/src/assets/icon.png")))
+        self.nam.get(
+            QNetworkRequest(
+                QUrl("https://raw.githubusercontent.com/LiveSplit/LiveSplitOne/refs/heads/master/src/assets/icon.png")
+            )
+        )
 
         self.setWindowTitle("LiveSplit One")
         self.setMinimumSize(850, 750)
