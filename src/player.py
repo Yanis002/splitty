@@ -143,7 +143,11 @@ class KeyThread(QThread):
             self.listener = None
 
     def restart_listener(self):
-        self.destroy_listener()
+        # a better fix would be using `create_listener` directly
+        try:
+            self.destroy_listener()
+        except AttributeError:
+            print("attribute error happened")
         self.create_listener()
 
     def run(self):
